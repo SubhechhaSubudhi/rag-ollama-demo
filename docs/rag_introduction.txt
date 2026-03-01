@@ -1,0 +1,6 @@
+RAG (Retrieval-Augmented Generation) combines:
+1. Retrieving relevant documents from a knowledge base
+2. Augmenting the prompt with retrieved context  
+3. Generating answers grounded in actual documents
+
+This reduces hallucinations and allows LLMs to answer questions about documents they never saw during training.

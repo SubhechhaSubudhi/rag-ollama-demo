@@ -1,0 +1,7 @@
+Key RAG Components:
+1. Document Loaders - Extract text from PDFs, websites, databases
+2. Text Chunking - Split documents into smaller pieces (256-512 tokens)
+3. Embedding Models - Convert text to vectors (e.g., nomic-embed-text)
+4. Vector Database - Store embeddings for fast search (ChromaDB, FAISS)
+5. Retrieval System - Find relevant documents using similarity search
+6. LLM - Generate answers from retrieved context

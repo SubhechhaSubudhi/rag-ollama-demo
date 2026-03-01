@@ -36,7 +36,7 @@ try:
         CSVLoader,
         UnstructuredHTMLLoader
     )
-    from langchain.text_splitter import RecursiveCharacterTextSplitter
+    from langchain_text_splitters import RecursiveCharacterTextSplitter
     from langchain_community.vectorstores import Chroma
     from langchain_community.embeddings import OllamaEmbeddings
     from langchain_community.llms import Ollama
@@ -50,7 +50,7 @@ except ImportError as e:
 # Configuration
 OLLAMA_BASE_URL = "http://localhost:11434"
 EMBEDDING_MODEL = "nomic-embed-text"
-LLM_MODEL = "llama2"
+LLM_MODEL = "minimax-m2.5:cloud"
 CHUNK_SIZE = 500
 CHUNK_OVERLAP = 50
 DOCS_PATH = Path("docs")
