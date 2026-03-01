@@ -5,6 +5,9 @@ Using Ollama for both embeddings and LLM
 Requirements:
     pip install ollama chromadb langchain langchain-community
 
+For PDF support:
+    pip install pypdf
+
 First, install and run Ollama:
     1. curl -fsSL https://ollama.ai/install.sh | sh
     2. ollama pull nomic-embed-text
@@ -19,7 +22,20 @@ from pathlib import Path
 # Third-party imports
 try:
     import ollama
-    from langchain_community.document_loaders import TextLoader, DirectoryLoader
+except ImportError as e:
+    print(f"Missing dependency: {e}")
+    print("Install with: pip install ollama")
+    exit(1)
+
+try:
+    from langchain_community.document_loaders import (
+        TextLoader, 
+        DirectoryLoader, 
+        PyPDFLoader,
+        UnstructuredMarkdownLoader,
+        CSVLoader,
+        UnstructuredHTMLLoader
+    )
     from langchain.text_splitter import RecursiveCharacterTextSplitter
     from langchain_community.vectorstores import Chroma
     from langchain_community.embeddings import OllamaEmbeddings
@@ -27,7 +43,7 @@ try:
     from langchain.chains import RetrievalQA
 except ImportError as e:
     print(f"Missing dependency: {e}")
-    print("Install with: pip install ollama chromadb langchain langchain-community")
+    print("Install with: pip install ollama chromadb langchain langchain-community pypdf python-docx")
     exit(1)
 
 
@@ -41,8 +57,20 @@ DOCS_PATH = Path("docs")
 PERSIST_DIR = Path("chroma_db")
 
 
+# Supported file extensions and their loaders
+FILE_LOADERS = {
+    '.txt': TextLoader,
+    '.pdf': PyPDFLoader,
+    '.md': TextLoader,  # Can also use UnstructuredMarkdownLoader
+    '.markdown': TextLoader,
+    '.csv': CSVLoader,
+    '.html': UnstructuredHTMLLoader,
+    '.htm': UnstructuredHTMLLoader,
+}
+
+
 class SimpleRAG:
-    """Simple RAG implementation using Ollama"""
+    """Simple RAG implementation using Ollama with multi-format support"""
     
     def __init__(
         self,
@@ -73,20 +101,61 @@ class SimpleRAG:
         self.vectorstore = None
         self.qa_chain = None
     
+    def get_loader(self, file_path: Path):
+        """Get appropriate loader for file type"""
+        ext = file_path.suffix.lower()
+        
+        if ext not in FILE_LOADERS:
+            print(f"Warning: Unsupported file type {ext}, skipping {file_path}")
+            return None
+        
+        loader_class = FILE_LOADERS[ext]
+        
+        # Some loaders need special encoding handling
+        if ext in ['.txt', '.md', '.markdown']:
+            return loader_class(str(file_path), encoding='utf-8')
+        elif ext == '.pdf':
+            return loader_class(str(file_path))
+        else:
+            return loader_class(str(file_path))
+    
     def load_documents(self) -> list:
-        """Load documents from the docs directory"""
+        """Load documents from the docs directory - supports multiple formats"""
         if not self.docs_path.exists():
             print(f"Warning: {self.docs_path} does not exist")
             return []
         
-        # Load all text files from directory
-        loader = DirectoryLoader(
-            str(self.docs_path),
-            glob="*.txt",
-            loader_cls=TextLoader
-        )
-        documents = loader.load()
-        print(f"Loaded {len(documents)} documents")
+        documents = []
+        supported_extensions = list(FILE_LOADERS.keys())
+        
+        # Find all supported files
+        files = []
+        for ext in supported_extensions:
+            files.extend(self.docs_path.glob(f"*{ext}"))
+            files.extend(self.docs_path.glob(f"**/*{ext}"))
+        
+        # Remove duplicates and sort
+        files = sorted(set(files))
+        
+        print(f"Found {len(files)} supported files:")
+        for f in files:
+            print(f"  - {f.name} ({f.suffix})")
+        
+        for file_path in files:
+            try:
+                loader = self.get_loader(file_path)
+                if loader:
+                    docs = loader.load()
+                    # Add source metadata
+                    for doc in docs:
+                        doc.metadata['source'] = file_path.name
+                        doc.metadata['file_type'] = file_path.suffix
+                    documents.extend(docs)
+                    print(f"Loaded: {file_path.name} ({len(docs)} document(s))")
+            except Exception as e:
+                print(f"Error loading {file_path.name}: {e}")
+        
+        print(f"\nTotal: Loaded {len(documents)} document(s)")
         return documents
     
     def split_documents(self, documents: list) -> list:
@@ -95,6 +164,7 @@ class SimpleRAG:
             chunk_size=self.chunk_size,
             chunk_overlap=self.chunk_overlap,
             length_function=len,
+            separators=["\n\n", "\n", " ", ""]
         )
         chunks = text_splitter.split_documents(documents)
         print(f"Split into {len(chunks)} chunks")
@@ -149,6 +219,7 @@ class SimpleRAG:
             "source_documents": [
                 {
                     "source": doc.metadata.get("source", "Unknown"),
+                    "file_type": doc.metadata.get("file_type", "Unknown"),
                     "content": doc.page_content[:200] + "..."
                 }
                 for doc in result["source_documents"]
@@ -185,16 +256,25 @@ class SimpleRAG:
             print("\nMake sure Ollama is running:")
             print("  ollama serve")
             return False
+    
+    def list_supported_formats(self):
+        """List all supported file formats"""
+        print("Supported file formats:")
+        for ext, loader in FILE_LOADERS.items():
+            print(f"  {ext} -> {loader.__name__}")
 
 
 def demo():
     """Run a demonstration of the RAG system"""
     print("=" * 60)
-    print("Simple RAG Demo with Ollama")
+    print("Simple RAG Demo with Ollama - Multi-Format Support")
     print("=" * 60)
     
-    # Check Ollama
+    # Show supported formats
     rag = SimpleRAG()
+    rag.list_supported_formats()
+    
+    # Check Ollama
     if not rag.check_ollama():
         print("\nPlease install missing models and try again.")
         return
@@ -224,7 +304,7 @@ def demo():
         print(f"A: {result['answer']}")
         print(f"\nSources:")
         for doc in result["source_documents"]:
-            print(f"  - {doc['source']}")
+            print(f"  - {doc['source']} ({doc['file_type']})")
 
 
 def create_sample_docs():

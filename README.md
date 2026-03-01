@@ -2,6 +2,13 @@
 
 A simple Retrieval-Augmented Generation (RAG) system using Ollama for both embeddings and LLM. Perfect for demos and learning!
 
+## Features
+
+- 🧠 **Local LLM** - No API calls, runs entirely on your machine
+- 📄 **Multi-Format Support** - TXT, PDF, Markdown, CSV, HTML
+- 💾 **Persistent Vector Store** - ChromaDB for fast retrieval
+- 🔧 **Easy to Customize** - Swap models, change chunk sizes
+
 ## Prerequisites
 
 ### 1. Install Ollama
@@ -17,10 +24,10 @@ curl -fsSL https://ollama.ai/install.sh | sh
 ### 2. Pull Required Models
 
 ```bash
-# Pull the embedding model (nomic-embed-text is free and excellent!)
+# Pull the embedding model
 ollama pull nomic-embed-text
 
-# Pull an LLM (llama2 is good for general use, mistral is faster)
+# Pull an LLM
 ollama pull llama2
 
 # Other options:
@@ -49,13 +56,52 @@ pip install -r requirements.txt
 python simple_rag.py
 ```
 
-This will:
-1. Load sample documents from `docs/`
-2. Create embeddings using `nomic-embed-text`
-3. Build a vector store in `chroma_db/`
-4. Run demo queries through Llama2
+### Convert Presentation to PDF
 
-### Use Programmatically
+```bash
+# Install dependencies
+pip install markdown weasyprint
+
+# Convert
+python md_to_pdf.py
+```
+
+Or use pandoc:
+```bash
+pandoc RAG_Presentation.md -o RAG_Presentation.pdf --standalone
+```
+
+## Supported File Formats
+
+| Format | Extension | Loader |
+|--------|-----------|--------|
+| Text | `.txt` | TextLoader |
+| PDF | `.pdf` | PyPDFLoader |
+| Markdown | `.md`, `.markdown` | TextLoader |
+| CSV | `.csv` | CSVLoader |
+| HTML | `.html`, `.htm` | UnstructuredHTMLLoader |
+
+## Project Structure
+
+```
+rag-demo/
+├── simple_rag.py           # Main RAG implementation
+├── md_to_pdf.py           # Markdown to PDF converter
+├── requirements.txt        # Python dependencies
+├── README.md              # This file
+├── RAG_Presentation.md   # Presentation slides
+├── setup.sh               # Setup script
+├── docs/                  # Document storage
+│   ├── rag_introduction.txt
+│   ├── components.txt
+│   ├── applications.txt
+│   └── best_practices.txt
+└── chroma_db/            # Vector store (created on first run)
+```
+
+## Usage
+
+### Programmatic Usage
 
 ```python
 from simple_rag import SimpleRAG
@@ -75,19 +121,11 @@ for doc in result["source_documents"]:
     print(f"Source: {doc['source']}")
 ```
 
-## Project Structure
+### Command Line
 
-```
-rag-demo/
-├── simple_rag.py       # Main RAG implementation
-├── requirements.txt    # Python dependencies
-├── README.md          # This file
-├── docs/              # Document storage
-│   ├── rag_introduction.txt
-│   ├── components.txt
-│   ├── applications.txt
-│   └── best_practices.txt
-└── chroma_db/         # Vector store (created on first run)
+```bash
+# Re-index documents
+python -c "from simple_rag import SimpleRAG; r = SimpleRAG(); r.create_index(force_recreate=True)"
 ```
 
 ## Customization
@@ -102,8 +140,10 @@ rag = SimpleRAG(llm_model="codellama")  # Better for code
 ### Use Your Own Documents
 
 ```bash
-# Put your .txt files in the docs/ folder
-cp your_document.txt docs/
+# Put your files in the docs/ folder
+# Supported: .txt, .pdf, .md, .csv, .html
+
+cp your_document.pdf docs/
 python simple_rag.py  # Will re-index automatically
 ```
 
@@ -112,6 +152,27 @@ python simple_rag.py  # Will re-index automatically
 ```python
 rag = SimpleRAG(chunk_size=1000, chunk_overlap=100)
 ```
+
+## For Your Seminar
+
+### Presentation
+- See `RAG_Presentation.md` for the slides!
+- Convert to PDF: `python md_to_pdf.py`
+
+### Demo Flow
+1. Show the architecture diagram
+2. Run `python simple_rag.py`
+3. Ask questions like:
+   - "What is RAG?"
+   - "What are the components?"
+   - "What are the applications?"
+4. Show how sources are cited
+
+### Key Talking Points
+1. **Privacy**: All data stays local
+2. **No API costs**: Using open-source models
+3. **Customizable**: Any documents, any domain
+4. **Educational**: Great for learning RAG concepts
 
 ## Troubleshooting
 
@@ -128,29 +189,17 @@ ollama pull nomic-embed-text
 ollama pull llama2
 ```
 
+### "Unsupported file type"
+Check that your file extension is supported:
+```python
+from simple_rag import SimpleRAG
+rag = SimpleRAG()
+rag.list_supported_formats()
+```
+
 ### Slow performance
 - Use a GPU for faster inference
 - Try smaller models (phi3 instead of llama2)
-
-## For Your Seminar
-
-### Presentation
-See `RAG_Presentation.md` for the slides!
-
-### Demo Flow
-1. Show the architecture diagram
-2. Run `python simple_rag.py`
-3. Ask questions like:
-   - "What is RAG?"
-   - "What are the components?"
-   - "What are the applications?"
-4. Show how sources are cited
-
-### Key Talking Points
-1. **Privacy**: All data stays local
-2. **No API costs**: Using open-source models
-3. **Customizable**: Any documents, any domain
-4. **Educational**: Great for learning RAG concepts
 
 ## References
 
