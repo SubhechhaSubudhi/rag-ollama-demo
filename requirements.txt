@@ -1,11 +1,14 @@
 # RAG Demo Requirements
 
-# Core dependencies
+# Core dependencies - use specific versions for compatibility
 ollama>=0.1.0
 chromadb>=0.4.0
 langchain>=0.1.0
 langchain-community>=0.0.0
 langchain-text-splitters>=0.0.0
+
+# For backward compatibility ( RetrievalQA )
+langchain-classic>=0.0.0
 
 # For PDF support
 pypdf>=3.0.0
@@ -16,12 +19,3 @@ python-docx>=1.0.0
 # For HTML support (optional)
 beautifulsoup4>=4.12.0
 lxml>=4.9.0
-
-# For CSV support (optional)
-# (included in langchain-community)
-
-# For markdown support (optional)
-# (included in langchain-community)
-
-# For local development
-# pip install -r requirements.txt
