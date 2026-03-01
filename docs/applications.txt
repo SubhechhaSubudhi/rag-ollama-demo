@@ -1,7 +1,0 @@
-RAG Use Cases:
-1. Enterprise Q&A - Internal documents, policies
-2. Customer Support - Product documentation
-3. Technical Docs - API manuals, engineering papers
-4. Research - Paper search and summarization
-5. Legal - Case law research
-6. Financial - Annual reports, market research

@@ -19,12 +19,12 @@
 # What is RAG?
 
 **Retrieval-Augmented Generation (RAG)** is a pattern that combines:
-- **Retrieval** – Finding relevant documents from a knowledge base
-- **Augmentation** – Injecting retrieved context into the prompt
-- **Generation** – Using an LLM to generate the final answer
+- **Retrieval** - Finding relevant documents from a knowledge base
+- **Augmentation** - Injecting retrieved context into the prompt
+- **Generation** - Using an LLM to generate the final answer
 
 ```
-User Query → Retrieve Relevant Docs → Add to Prompt → LLM Generates Answer
+User Query --> Retrieve Relevant Docs --> Add to Prompt --> LLM Generates Answer
 ```
 
 ---
@@ -34,7 +34,7 @@ User Query → Retrieve Relevant Docs → Add to Prompt → LLM Generates Answer
 | Challenge | Without RAG | With RAG |
 |-----------|-------------|----------|
 | Knowledge cutoff | LLM only knows training data | Can access up-to-date info |
-| hallucinations | May fabricate facts | Grounded in retrieved context |
+| Hallucinations | May fabricate facts | Grounded in retrieved context |
 | Domain knowledge | Generic responses | Customized to your data |
 | Data privacy | Send sensitive data to LLM | Keep data local |
 
@@ -43,47 +43,52 @@ User Query → Retrieve Relevant Docs → Add to Prompt → LLM Generates Answer
 # How RAG Works
 
 ```
-┌─────────────┐    ┌──────────────────┐    ┌─────────────┐
-│   Query     │───▶│  Embedding Model │───▶│   Vector    │
-│  "What is..?"│    │  (Ollama)        │    │   Store     │
-└─────────────┘    └──────────────────┘    └──────┬──────┘
-                                                 │
-                     ┌───────────────────────────┘
-                     ▼
-              ┌─────────────┐    ┌──────────────────┐    ┌─────────────┐
-              │  Retrieve  │───▶│  Build Prompt    │───▶│     LLM     │
-              │ Top-K Docs │    │ + Context        │    │  (Ollama)  │
-              └─────────────┘    └──────────────────┘    └──────┬──────┘
-                                                               │
-                                                               ▼
-                                                        ┌─────────────┐
-                                                        │   Answer    │
-                                                        │ + Citations │
-                                                        └─────────────┘
+                        +------------------+
+                        |  Embedding Model |  (Ollama - nomic-embed-text)
+                        |  Convert to Vec  |
+                        +--------+---------+
+                                 |
++--------+     Query      +--------v---------+
+| Query  |-------------->|                  |
+|        |<-------------|    Vector Store   |  (ChromaDB)
+|        |   Retrieve   |   (Similarity)   |
++--------+  Top-K Docs  +------------------+
+                                 |
+                                 | Context
+                                 v
+                        +--------+---------+
+                        |    LLM           |  (Ollama - llama2/mistral)
+                        |  Generate Answer  |
+                        +--------+---------+
+                                 |
+                                 v
+                        +------------------+
+                        | Answer + Sources |
+                        +------------------+
 ```
 
 ---
 
 # Key Components
 
-## 1. **Document Processing**
+## 1. Document Processing
 - Text chunking/splitting
 - Metadata extraction
 - Cleaning & normalization
 
-## 2. **Embedding Model**
+## 2. Embedding Model
 - Converts text to vectors
-- Example: `nomic-embed-text` (Ollama)
+- Example: nomic-embed-text (Ollama)
 
-## 3. **Vector Database**
+## 3. Vector Database
 - Stores embeddings for similarity search
 - Options: ChromaDB, FAISS, Milvus, Pinecone
 
-## 4. **Retrieval System**
+## 4. Retrieval System
 - Semantic search (not keyword!)
 - Re-ranking (optional)
 
-## 5. **Generation Model**
+## 5. Generation Model
 - LLM generates answer from retrieved context
 - Ollama supports many models
 
@@ -101,24 +106,100 @@ User Query → Retrieve Relevant Docs → Add to Prompt → LLM Generates Answer
 
 ---
 
-# Demo Architecture
+# How RAG Works (Detailed Flow)
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                   Our RAG System                    │
-├─────────────────────────────────────────────────────┤
-│                                                     │
-│  📄 Documents    ──▶  🔪 Chunker  ──▶  📦 Chunks   │
-│                                                     │
-│  📦 Chunks      ──▶  🧠 Ollama   ──▶  💾 Vectors   │
-│                   (nomic-embed-text)                │
-│                                                     │
-│  ❓ Query       ──▶  🔍 Retrieve ──▶  📄 Context   │
-│                                                     │
-│  📄 Context     ──▶  🤖 LLM      ──▶  💬 Answer    │
-│                   (llama2/mistral)                  │
-│                                                     │
-└─────────────────────────────────────────────────────┘
++------------------------------------------------------------------+
+|                      RAG SYSTEM OVERVIEW                           |
++------------------------------------------------------------------+
+
+STEP 1: INDEXING (Offline - Build the Knowledge Base)
++------------------------------------------------------------------+
+|                                                                   |
+|  DOCUMENTS      CHUNKER        EMBEDDING        VECTOR DB        |
+|  +--------+    +--------+    +-----------+    +----------+     |
+|  | PDF,   | -> | Split  | -> |  nomic-   | -> | ChromaDB |     |
+|  | TXT,   |    | into   |    |  embed-   |    | Store    |     |
+|  | MD     |    | chunks |    |  text     |    | vectors  |     |
+|  +--------+    +--------+    +-----------+    +----------+     |
+|                                                                   |
++------------------------------------------------------------------+
+
+STEP 2: RETRIEVAL (When user asks a question)
++------------------------------------------------------------------+
+|                                                                   |
+|  USER QUESTION                                                   |
+|  +-------------+                                                  |
+|  | "What is   |                                                  |
+|  |  RAG?"     |                                                  |
+|  +------+------+                                                  |
+|         |                                                         |
+|         v                                                         |
+|  +-------------+    +-----------+    +-------------------+       |
+|  |  Embed the | -> |  Search   | -> |  Get Top-K       |       |
+|  |  question  |    |  Vector   |    |  relevant chunks |       |
+|  +-------------+    +-----------+    +-------------------+       |
+|                                  |                                |
++----------------------------------+--------------------------------+
+                                   |
+                                   v
+STEP 3: AUGMENTATION (Add context to prompt)
++------------------------------------------------------------------+
+|                                                                   |
+|  +----------------+      +--------------------+                   |
+|  |    Prompt:     |      |  Retrieved        |                   |
+|  |  "Answer      |  +   |  Context:         |                   |
+|  |   this:       |      |  - Chunk 1...     |                   |
+|  |  [QUESTION]"  |      |  - Chunk 2...     |                   |
+|  +----------------+      +--------------------+                   |
+|                                                                   |
++------------------------------------------------------------------+
+
+STEP 4: GENERATION (LLM generates answer)
++------------------------------------------------------------------+
+|                                                                   |
+|  +--------------------+      +------------------+                 |
+|  |       LLM          |  ->  |   ANSWER with   |                 |
+|  |  (llama2/mistral) |      |   CITATIONS      |                 |
+|  +--------------------+      +------------------+                 |
+|                                                                   |
++------------------------------------------------------------------+
+```
+
+---
+
+# Simple Flow Diagram
+
+```
+                    INDEXING (Offline)
+                    =================
+                    
+    Docs --> Chunk --> Embed --> Store in VectorDB
+    
+    
+                    QUERY TIME
+                    ==========
+    
+    User Question
+         |
+         v
+    [Embed Question] -----> VectorDB (Search)
+         |                      |
+         |                      v
+         |                 Top-K Chunks
+         |                      |
+         +----------+-----------+
+                    |
+                    v
+             [Build Prompt]
+              (Question +
+               Context)
+                    |
+                    v
+               [LLM Generate]
+                    |
+                    v
+              Answer + Sources
 ```
 
 ---
@@ -126,22 +207,22 @@ User Query → Retrieve Relevant Docs → Add to Prompt → LLM Generates Answer
 # Live Demo
 
 We'll show:
-1. **Setup** – Loading documents
-2. **Indexing** – Creating embeddings
-3. **Query** – Asking questions
-4. **Results** – Seeing RAG in action
+1. **Setup** - Loading documents
+2. **Indexing** - Creating embeddings
+3. **Query** - Asking questions
+4. **Results** - Seeing RAG in action
 
 ---
 
 # When to Use RAG
 
-## ✅ Good Use Cases
+## Good Use Cases
 - Q&A over internal documents
 - Technical documentation search
 - Customer support automation
 - Knowledge base queries
 
-## ❌ Maybe Not
+## Maybe Not
 - Simple Q&A with fixed answers
 - Tasks requiring world knowledge only
 - Real-time aggregation of changing data
@@ -174,11 +255,11 @@ mrr = mean(reciprocal_rank_of_first_relevant)
 
 # Production Tips
 
-1. **Caching** – Cache embeddings for fast retrieval
-2. **Hybrid search** – Combine keyword + semantic
-3. **Re-ranking** – Cross-encoder for better results
-4. **Monitoring** – Track retrieval quality
-5. **Updates** – Periodic re-indexing of documents
+1. **Caching** - Cache embeddings for fast retrieval
+2. **Hybrid search** - Combine keyword + semantic
+3. **Re-ranking** - Cross-encoder for better results
+4. **Monitoring** - Track retrieval quality
+5. **Updates** - Periodic re-indexing of documents
 
 ---
 
@@ -198,12 +279,12 @@ mrr = mean(reciprocal_rank_of_first_relevant)
 
 ## Let's see the code!
 
-**Repository**: [Will be created]
+**Repository**: https://github.com/SubhechhaSubudhi/rag-ollama-demo
 
 **Key files**:
-- `simple_rag.py` – Core RAG implementation
-- `requirements.txt` – Dependencies
-- `docs/` – Sample documents for demo
+- `simple_rag.py` - Core RAG implementation
+- `requirements.txt` - Dependencies
+- `docs/` - Sample documents for demo
 
 ---
 
@@ -241,4 +322,3 @@ ollama pull phi3              # Lightweight
 | **Milvus** | Server | Production scale |
 | **Pinecone** | SaaS | Managed solution |
 | **Weaviate** | Server | Graph + vector hybrid |
-
